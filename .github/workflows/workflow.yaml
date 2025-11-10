@@ -78,3 +78,18 @@ jobs:
       registry-username: ${{ github.actor }}
     secrets:
       registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  gh-attest:
+    needs: [build]
+    permissions:
+      attestations: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Attest
+        uses: actions/attest-build-provenance@v3
+        id: attest
+        with:
+          subject-name: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ needs.build.outputs.digest }}
+          push-to-registry: true
