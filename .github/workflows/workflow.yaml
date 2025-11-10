@@ -57,6 +57,19 @@ jobs:
               --metadata-file metadata.json \
               --provenance=false --push ."
 
+      - name: Build Image
+        uses: ./.github/workflows/witness.yml
+        with:
+          version: 0.10.1
+          step: build-image
+          attestations: "git github environment docker slsa"
+          command: |
+            /bin/sh -c "docker buildx build --platform linux/arm64 \
+              -t ${{ steps.meta.outputs.tags }} \
+              --label '${{ steps.meta.outputs.labels }}' \
+              --metadata-file metadata.json \
+              --provenance=false --push ."
+
       - name: Output image
         id: image
         run: |
