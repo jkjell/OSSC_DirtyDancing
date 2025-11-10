@@ -17,10 +17,11 @@ jobs:
   build:
     permissions:
       contents: read
+      id-token: write
       packages: write
     outputs:
       image: ${{ steps.image.outputs.image }}
-      digest: ${{ steps.build.outputs.digest }}
+      digest: ${{ steps.image.outputs.digest }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repository
@@ -43,17 +44,27 @@ jobs:
         uses: docker/metadata-action@69f6fc9d46f2f8bf0d5491e4aabe0bb8c6a4678a # v4.0.1
         with:
           images: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=false
+          tags: |
+            # branch event
+            type=ref,event=branch
+            # tag event
+            type=ref,event=tag
+            # pull request event
+            type=ref,event=pr
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@e551b19e49efd4e98792db7592c17c09b89db8d8 # v3.0.0
-        id: build
+        uses: testifysec/witness-run-action@7aa15e327829f1f2a523365c564c948d5dde69dd
         with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
+          version: 0.10.1
+          step: build-image
+          attestations: "git github environment docker slsa"
+          command: |
+            /bin/sh -c "docker buildx build --platform linux/arm64 \
+              --tag '${{steps.meta.outputs.tags}}' \
+              --metadata-file metadata.json \
+              --provenance=false --push ."
       - name: Output image
         id: image
         run: |
@@ -61,6 +72,10 @@ jobs:
           # available to the inputs of a reusable workflow call.
           image_name="${IMAGE_REGISTRY}/${IMAGE_NAME}"
           echo "image=$image_name" >> "$GITHUB_OUTPUT"
+          cat metadata.json
+          digest=$(jq -r '."containerimage.digest"' metadata.json)
+          echo "digest: $digest"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
   # This step calls the container workflow to generate provenance and push it to
   # the container registry.
@@ -92,4 +107,3 @@ jobs:
         with:
           subject-name: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ needs.build.outputs.digest }}
-          push-to-registry: true
