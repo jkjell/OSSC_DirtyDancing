@@ -45,14 +45,17 @@ jobs:
           images: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@e551b19e49efd4e98792db7592c17c09b89db8d8 # v3.0.0
-        id: build
+        uses: ./.github/workflows/witness.yaml
         with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          version: 0.10.1
+          step: build-image
+          attestations: "git github environment docker slsa"
+          command: |
+            /bin/sh -c "docker buildx build --platform linux/arm64 \
+              -t ${{ steps.meta.outputs.tags }} \
+              --label '${{ steps.meta.outputs.labels }}' \
+              --metadata-file metadata.json \
+              --provenance=false --push ."
 
       - name: Output image
         id: image
@@ -92,4 +95,3 @@ jobs:
         with:
           subject-name: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ needs.build.outputs.digest }}
-          push-to-registry: true
